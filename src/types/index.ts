@@ -173,3 +173,44 @@ export interface BalanceHistory {
   reason?: string;
   timestamp: string;
 }
+
+export interface Reserved {
+  id: string;
+  user: UserRole;
+  purpose: string;
+  amount: number;
+  dateCreated: string;
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Tabung {
+  id: string;
+  user: UserRole;
+  name: string;
+  description?: string;
+  targetAmount: number;
+  savedAmount: number;
+  startDate: string; // ISO date string
+  targetDate?: string; // ISO date string
+  status: 'active' | 'completed';
+  progressPercentage?: number;
+  remainingAmount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TabungTransaction {
+  id: string;
+  tabungId: string;
+  user: UserRole;
+  type: 'save' | 'withdraw';
+  amount: number;
+  previousAmount: number;
+  newAmount: number;
+  reason?: string;
+  transactionDate: string;
+  createdAt: string;
+  updatedAt: string;
+}

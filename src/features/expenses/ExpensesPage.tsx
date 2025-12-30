@@ -9,6 +9,7 @@ import { fetchBalances } from '../balance/balanceSlice';
 import { fetchCreditCards } from '../creditCards/creditCardSlice';
 import { ExpenseList } from './ExpenseList';
 import { AddExpenseModal } from './AddExpenseModal';
+import { DeleteExpenseModal } from './DeleteExpenseModal'; // ← Add this import
 import { Expense } from '../../types';
 import {
   formatCurrency,
@@ -24,6 +25,7 @@ export const ExpensesPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | undefined>(undefined);
+  const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null); // ← Add this state
 
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(selectedMonth);
   const monthName = getFinancialMonthName(selectedMonth);
@@ -48,16 +50,16 @@ export const ExpensesPage: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleDeleteExpense = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this expense?')) {
-      try {
-        await dispatch(deleteExpense(id)).unwrap();
-        await dispatch(fetchBalances());
-        await dispatch(fetchCreditCards());
-      } catch (error) {
-        console.error('Failed to delete expense:', error);
-      }
-    }
+  // ← Update this to open modal
+  const handleDeleteExpense = (expense: Expense) => {
+    setDeletingExpense(expense);
+  };
+
+  // ← Add this function for actual deletion
+  const handleConfirmDelete = async (expenseId: string) => {
+    await dispatch(deleteExpense(expenseId)).unwrap();
+    await dispatch(fetchBalances());
+    await dispatch(fetchCreditCards());
   };
 
   const handleModalSuccess = () => {
@@ -177,6 +179,13 @@ export const ExpensesPage: React.FC = () => {
         }}
         expense={editingExpense}
         onSuccess={handleModalSuccess}
+      />
+
+      <DeleteExpenseModal
+        isOpen={deletingExpense !== null}
+        onClose={() => setDeletingExpense(null)}
+        expense={deletingExpense}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

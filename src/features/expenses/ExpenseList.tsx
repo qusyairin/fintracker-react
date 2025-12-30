@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Pencil, Trash2, ShoppingBag } from 'lucide-react';
 import { Badge } from '../../components/common/Badge';
 import { Expense } from '../../types';
@@ -8,24 +8,11 @@ import { CATEGORY_LABELS, PAYMENT_METHOD_LABELS } from '../../constants/categori
 interface ExpenseListProps {
   expenses: Expense[];
   loading: boolean;
-  onEdit: (expense: Expense) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (expense: Expense) => void;
+  onDelete?: (expense: Expense) => void;
 }
 
 export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, loading, onEdit, onDelete }) => {
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-
-  const handleDelete = (id: string) => {
-    if (deleteConfirm === id) {
-      onDelete(id);
-      setDeleteConfirm(null);
-    } else {
-      setDeleteConfirm(id);
-      // Reset confirmation after 3 seconds
-      setTimeout(() => setDeleteConfirm(null), 3000);
-    }
-  };
-
   const getUserColor = (user: string) => {
     return user === 'husband' ? 'text-blue-600' : 'text-pink-600';
   };
@@ -110,24 +97,24 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, loading, onE
               </td>
               <td className="py-3 px-4">
                 <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => onEdit(expense)}
-                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Edit"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(expense.id)}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      deleteConfirm === expense.id
-                        ? 'bg-red-100 text-red-700'
-                        : 'text-red-600 hover:bg-red-50'
-                    }`}
-                    title={deleteConfirm === expense.id ? 'Click again to confirm' : 'Delete'}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {onEdit && (
+                    <button
+                      onClick={() => onEdit(expense)}
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      onClick={() => onDelete(expense)} // ← Changed: Pass entire expense object
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

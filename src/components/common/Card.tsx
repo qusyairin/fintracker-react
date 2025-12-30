@@ -2,27 +2,35 @@ import React from 'react';
 
 interface CardProps {
   children: React.ReactNode;
-  className?: string;
-  title?: string;
+  title?: string | React.ReactNode;
   icon?: React.ReactNode;
   actions?: React.ReactNode;
+  className?: string;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '', title, icon, actions }) => {
+export const Card: React.FC<CardProps> = ({
+  children,
+  title,
+  icon,
+  actions,
+  className = '',
+}) => {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${className}`}>
-      {(title || actions) && (
-        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-          {title && (
-            <div className="flex items-center space-x-2">
-              {icon && <div className="text-gray-600">{icon}</div>}
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 ${className}`}>
+      {(title || icon || actions) && (
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            {icon}
+            {typeof title === 'string' ? (
               <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            </div>
-          )}
+            ) : (
+              <div className="text-lg font-semibold text-gray-900 w-full">{title}</div>
+            )}
+          </div>
           {actions && <div>{actions}</div>}
         </div>
       )}
-      <div className="p-6">{children}</div>
+      {children}
     </div>
   );
 };

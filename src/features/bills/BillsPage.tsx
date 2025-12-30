@@ -10,6 +10,7 @@ import { fetchExpenses } from '../expenses/expenseSlice';
 import { BillList } from './BillList';
 import { AddBillModal } from './AddBillModal';
 import { PayBillModal } from './PayBillModal';
+import { DeleteBillModal } from './DeleteBillModal'; // ← Add this import
 import { Bill } from '../../types';
 import { formatCurrency, getCurrentMonth } from '../../utils/dateUtils';
 
@@ -20,6 +21,7 @@ export const BillsPage: React.FC = () => {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | undefined>(undefined);
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
+  const [deletingBill, setDeletingBill] = useState<Bill | null>(null); // ← Add this state
 
   const currentMonth = getCurrentMonth();
 
@@ -46,15 +48,17 @@ export const BillsPage: React.FC = () => {
     setIsPayModalOpen(true);
   };
 
-  const handleDeleteBill = async (billId: string) => {
-    try {
-      await dispatch(deleteBill(billId)).unwrap();
-      await dispatch(fetchBalances());
-      await dispatch(fetchCreditCards());
-      await dispatch(fetchExpenses(currentMonth));
-    } catch (error) {
-      console.error('Failed to delete bill:', error);
-    }
+  // ← Update this function to open modal instead of deleting directly
+  const handleDeleteBill = (bill: Bill) => {
+    setDeletingBill(bill);
+  };
+
+  // ← Add this function to handle the actual deletion
+  const handleConfirmDelete = async (billId: string) => {
+    await dispatch(deleteBill(billId)).unwrap();
+    await dispatch(fetchBalances());
+    await dispatch(fetchCreditCards());
+    await dispatch(fetchExpenses(currentMonth));
   };
 
   const handleAddModalSuccess = () => {
@@ -158,6 +162,14 @@ export const BillsPage: React.FC = () => {
         }}
         bill={payingBill}
         onSuccess={handlePayModalSuccess}
+      />
+
+      {/* Delete Bill Modal - ← Add this */}
+      <DeleteBillModal
+        isOpen={deletingBill !== null}
+        onClose={() => setDeletingBill(null)}
+        bill={deletingBill}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

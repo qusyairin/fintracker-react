@@ -5,8 +5,10 @@ import { IncomePage } from '../features/income/IncomePage';
 import { CreditCardsPage } from '../features/creditCards/CreditCardsPage';
 import { BillsPage } from '../features/bills/BillsPage';
 import { BalancePage } from '../features/balance/BalancePage';
+import { ReservedPage } from '../features/reserved/ReservedPage';
+import { TabungPage } from '../features/tabung/TabungPage';
 
-export type RouteKey = 'dashboard' | 'expenses' | 'income' | 'balance' | 'credit-cards' | 'bills' | 'budget' | 'reports' | 'settings';
+export type RouteKey = 'dashboard' | 'expenses' | 'income' | 'balance' | 'credit-cards' | 'bills' | 'budget' | 'reports' | 'settings' | 'reserved' | 'tabung';
 
 interface Route {
   path: string;
@@ -27,8 +29,13 @@ export const routes: Record<RouteKey, Route> = {
   },
   income: {
     path: '/income',
-    component: IncomePage, // ← Updated!
+    component: IncomePage,
     label: 'Income',
+  },
+  reserved: {
+    path: '/reserved',
+    component: ReservedPage,
+    label: 'Reserved',
   },
   balance: {
     path: '/balance',
@@ -59,6 +66,11 @@ export const routes: Record<RouteKey, Route> = {
     path: '/settings',
     component: () => <div className="text-center py-12 text-gray-600">Settings page coming soon</div>,
     label: 'Settings',
+  },
+  tabung: {
+    path: '/tabung',
+    component: TabungPage,
+    label: 'Tabung',
   },
 };
 

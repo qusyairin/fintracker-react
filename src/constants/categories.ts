@@ -53,13 +53,13 @@ export const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   others: 'Others',
 };
 
-export const PAYMENT_METHOD_LABELS = {
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Cash',
-  cc1: 'Credit Card 1',
-  cc2: 'Credit Card 2',
-  cc3: 'Credit Card 3',
-  shopee_pay_later: 'Shopee Pay Later',
   debit: 'Debit Card',
+  cc1: 'Maybank Shopee',
+  cc2: 'HSBC TravelOne',
+  cc3: 'RHB Shell Visa',
+  shopee_pay_later: 'Shopee Pay Later',
 };
 
 export const INCOME_SOURCE_LABELS = {

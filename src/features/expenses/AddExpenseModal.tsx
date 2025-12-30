@@ -35,7 +35,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
     date: getTodayString(),
     amount: '',
     category: 'groceries' as ExpenseCategory,
-    paymentMethod: 'cash' as PaymentMethod,
+    paymentMethod: 'debit' as PaymentMethod,
     description: '',
     notes: '',
   });
@@ -59,7 +59,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         date: getTodayString(),
         amount: '',
         category: 'groceries',
-        paymentMethod: 'cash',
+        paymentMethod: 'debit',
         description: '',
         notes: '',
       });

@@ -1,22 +1,28 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { updateBalance } from './balanceSlice';
+import { fetchBalances, updateBalance } from './balanceSlice';
 import { fetchBalanceHistory, addBalanceHistory } from './balanceHistorySlice';
+import { fetchReservedItems } from '../reserved/reservedSlice';
 import { BalanceCard } from './BalanceCard';
 import { BalanceHistoryList } from './BalanceHistoryList';
+import { BalanceCardSkeleton } from '../dashboard/DashboardSkeleton';
 import { UserRole } from '../../types';
 
 export const BalancePage: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { balances } = useAppSelector((state) => state.balance);
-  const { history, loading } = useAppSelector((state) => state.balanceHistory);
+  const { balances, loading: balancesLoading } = useAppSelector((state) => state.balance);
+  const { history, loading: historyLoading } = useAppSelector((state) => state.balanceHistory);
   const { user: currentUser } = useAppSelector((state) => state.auth);
 
   const yourBalance = balances.find((b) => b.user === 'husband');
   const wifeBalance = balances.find((b) => b.user === 'wife');
 
+  const isInitialLoading = balancesLoading && balances.length === 0;
+
   useEffect(() => {
+    dispatch(fetchBalances());
     dispatch(fetchBalanceHistory());
+    dispatch(fetchReservedItems());
   }, [dispatch]);
 
   const handleBalanceUpdate = async (
@@ -24,27 +30,35 @@ export const BalancePage: React.FC = () => {
     field: 'cash' | 'bank' | 'setAside',
     newValue: number,
     reason?: string
-  ) => {
+  ): Promise<void> => { // ← Add return type
     const balance = balances.find((b) => b.user === user);
     if (!balance) return;
 
     const oldValue = balance[field];
 
-    // Update balance
-    await dispatch(updateBalance({
-      user,
-      data: { [field]: newValue },
-    }));
+    try {
+      // Update balance
+      await dispatch(updateBalance({
+        user,
+        data: { [field]: newValue },
+      })).unwrap();
 
-    // Add to history
-    await dispatch(addBalanceHistory({
-      user,
-      changedBy: currentUser?.role || 'husband',
-      field,
-      oldValue,
-      newValue,
-      reason,
-    }));
+      // Add to history
+      await dispatch(addBalanceHistory({
+        user,
+        changedBy: currentUser?.role || 'husband',
+        field,
+        oldValue,
+        newValue,
+        reason,
+      })).unwrap();
+
+      // Refresh data
+      await dispatch(fetchBalances()).unwrap();
+    } catch (error) {
+      console.error('Failed to update balance:', error);
+      throw error;
+    }
   };
 
   return (
@@ -56,28 +70,37 @@ export const BalancePage: React.FC = () => {
 
       {/* Balance Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {yourBalance && (
-          <BalanceCard
-            balance={yourBalance}
-            currentUser={currentUser?.role || 'husband'}
-            onUpdate={(field, newValue, reason) => 
-              handleBalanceUpdate('husband', field, newValue, reason)
-            }
-          />
-        )}
-        {wifeBalance && (
-          <BalanceCard
-            balance={wifeBalance}
-            currentUser={currentUser?.role || 'husband'}
-            onUpdate={(field, newValue, reason) => 
-              handleBalanceUpdate('wife', field, newValue, reason)
-            }
-          />
+        {isInitialLoading ? (
+          <>
+            <BalanceCardSkeleton title="Husband's Balance" />
+            <BalanceCardSkeleton title="Wife's Balance" />
+          </>
+        ) : (
+          <>
+            {yourBalance && (
+              <BalanceCard
+                balance={yourBalance}
+                currentUser={currentUser?.role || 'husband'}
+                onUpdate={(field, newValue, reason) => 
+                  handleBalanceUpdate('husband', field, newValue, reason)
+                }
+              />
+            )}
+            {wifeBalance && (
+              <BalanceCard
+                balance={wifeBalance}
+                currentUser={currentUser?.role || 'husband'}
+                onUpdate={(field, newValue, reason) => 
+                  handleBalanceUpdate('wife', field, newValue, reason)
+                }
+              />
+            )}
+          </>
         )}
       </div>
 
       {/* History */}
-      <BalanceHistoryList history={history} loading={loading} />
+      <BalanceHistoryList history={history} loading={historyLoading} />
     </div>
   );
 };

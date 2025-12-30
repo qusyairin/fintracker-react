@@ -7,6 +7,8 @@ import budgetReducer from '../features/budget/budgetSlice';
 import creditCardReducer from '../features/creditCards/creditCardSlice';
 import balanceReducer from '../features/balance/balanceSlice';
 import balanceHistoryReducer from '../features/balance/balanceHistorySlice';
+import reservedReducer from '../features/reserved/reservedSlice';
+import tabungReducer from '../features/tabung/tabungSlice';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +20,8 @@ export const store = configureStore({
     creditCard: creditCardReducer,
     balance: balanceReducer,
     balanceHistory: balanceHistoryReducer,
+    reserved: reservedReducer,
+    tabung: tabungReducer,
   },
 });
 

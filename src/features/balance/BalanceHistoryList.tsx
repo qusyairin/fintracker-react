@@ -10,13 +10,17 @@ interface BalanceHistoryListProps {
 }
 
 export const BalanceHistoryList: React.FC<BalanceHistoryListProps> = ({ history, loading }) => {
-  const getFieldLabel = (field: 'cash' | 'bank' | 'setAside'): string => {
-    const labels = {
-      cash: 'Cash on Hand',
-      bank: 'Bank Account',
-      setAside: 'Set Aside',
-    };
-    return labels[field];
+  const getFieldLabel = (field: string): string => {
+    switch (field) {
+      case 'cash':
+        return 'Wallet';
+      case 'bank':
+        return 'Bank Balance';
+      case 'setAside':
+        return 'Reserved';
+      default:
+        return field;
+    }
   };
 
   if (loading) {

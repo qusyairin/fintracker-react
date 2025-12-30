@@ -7,6 +7,7 @@ import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { fetchIncomes, deleteIncome } from './incomeSlice';
 import { fetchBalances } from '../balance/balanceSlice';
 import { IncomeModal } from './IncomeModal';
+import { DeleteIncomeModal } from './DeleteIncomeModal'; // ← Add this import
 import { Income } from '../../types';
 import {
   formatCurrency,
@@ -23,7 +24,7 @@ export const IncomePage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [showModal, setShowModal] = useState(false);
   const [editingIncome, setEditingIncome] = useState<Income | undefined>(undefined);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deletingIncome, setDeletingIncome] = useState<Income | null>(null); // ← Add this state
 
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(selectedMonth);
   const monthName = getFinancialMonthName(selectedMonth);
@@ -48,20 +49,15 @@ export const IncomePage: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleDeleteIncome = async (id: string) => {
-    if (deleteConfirm === id) {
-      try {
-        await dispatch(deleteIncome(id)).unwrap();
-        await dispatch(fetchBalances()); // Refresh balances
-        setDeleteConfirm(null);
-      } catch (error) {
-        console.error('Failed to delete income:', error);
-      }
-    } else {
-      setDeleteConfirm(id);
-      // Reset confirmation after 3 seconds
-      setTimeout(() => setDeleteConfirm(null), 3000);
-    }
+  // ← Update this to open modal
+  const handleDeleteIncome = (income: Income) => {
+    setDeletingIncome(income);
+  };
+
+  // ← Add this function for actual deletion
+  const handleConfirmDelete = async (incomeId: string) => {
+    await dispatch(deleteIncome(incomeId)).unwrap();
+    await dispatch(fetchBalances());
   };
 
   const handleModalSuccess = () => {
@@ -226,13 +222,9 @@ export const IncomePage: React.FC = () => {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteIncome(income.id)}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            deleteConfirm === income.id
-                              ? 'bg-red-100 text-red-700'
-                              : 'text-red-600 hover:bg-red-50'
-                          }`}
-                          title={deleteConfirm === income.id ? 'Click again to confirm' : 'Delete'}
+                          onClick={() => handleDeleteIncome(income)} // ← Changed: Pass entire income object
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -255,6 +247,14 @@ export const IncomePage: React.FC = () => {
         }}
         income={editingIncome}
         onSuccess={handleModalSuccess}
+      />
+
+      {/* Delete Income Modal - ← Add this */}
+      <DeleteIncomeModal
+        isOpen={deletingIncome !== null}
+        onClose={() => setDeletingIncome(null)}
+        income={deletingIncome}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

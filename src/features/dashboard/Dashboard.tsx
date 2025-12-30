@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Wallet, Info } from 'lucide-react';
+import { Plus, Wallet, Info, ChevronDown, ChevronUp, PiggyBank } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
@@ -8,6 +8,8 @@ import { fetchIncomes } from '../income/incomeSlice';
 import { fetchUpcomingBills } from '../bills/billSlice';
 import { fetchCreditCards } from '../creditCards/creditCardSlice';
 import { fetchBalances } from '../balance/balanceSlice';
+import { fetchReservedItems } from '../reserved/reservedSlice';
+import { fetchTabung } from '../tabung/tabungSlice';
 import { 
   formatCurrency, 
   getCurrentMonth,
@@ -31,9 +33,15 @@ export const Dashboard: React.FC = () => {
   const { incomes, loading: incomesLoading } = useAppSelector((state) => state.income);
   const { balances, loading: balancesLoading } = useAppSelector((state) => state.balance);
   const { upcomingBills, loading: billsLoading } = useAppSelector((state) => state.bill);
+  const { items: reservedItems } = useAppSelector((state) => state.reserved);
+  const { items: tabungItems } = useAppSelector((state) => state.tabung);
 
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expandedBalances, setExpandedBalances] = useState({
+    husband: true,
+    wife: true
+  });
 
   const currentMonth = getCurrentMonth();
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth);
@@ -54,7 +62,19 @@ export const Dashboard: React.FC = () => {
   const yourBalance = balances.find((b) => b.user === 'husband');
   const wifeBalance = balances.find((b) => b.user === 'wife');
 
-  // Calculate totals from components for accuracy
+  // Get reserved items per user
+  const husbandReserved = reservedItems.filter((item) => item.user === 'husband');
+  const wifeReserved = reservedItems.filter((item) => item.user === 'wife');
+
+  // Get tabung items per user (for separate display)
+  const husbandTabung = tabungItems.filter((item) => item.user === 'husband');
+  const wifeTabung = tabungItems.filter((item) => item.user === 'wife');
+
+  // Calculate tabung totals (SEPARATE from current balance)
+  const husbandTabungTotal = husbandTabung.reduce((sum, item) => sum + item.savedAmount, 0);
+  const wifeTabungTotal = wifeTabung.reduce((sum, item) => sum + item.savedAmount, 0);
+
+  // Calculate current balance totals (WITHOUT tabung)
   const husbandTotal = (yourBalance?.cash || 0) + (yourBalance?.bank || 0) + (yourBalance?.setAside || 0);
   const wifeTotal = (wifeBalance?.cash || 0) + (wifeBalance?.bank || 0) + (wifeBalance?.setAside || 0);
   const totalBalance = husbandTotal + wifeTotal;
@@ -68,6 +88,8 @@ export const Dashboard: React.FC = () => {
     dispatch(fetchIncomes(currentMonth));
     dispatch(fetchUpcomingBills(7));
     dispatch(fetchCreditCards());
+    dispatch(fetchReservedItems());
+    dispatch(fetchTabung());
   }, [dispatch, currentMonth]);
 
   const handleIncomeSuccess = () => {
@@ -79,6 +101,13 @@ export const Dashboard: React.FC = () => {
     dispatch(fetchExpenses(currentMonth));
     dispatch(fetchBalances());
     dispatch(fetchCreditCards());
+  };
+
+  const toggleBalanceExpand = (user: 'husband' | 'wife') => {
+    setExpandedBalances(prev => ({
+      ...prev,
+      [user]: !prev[user]
+    }));
   };
 
   return (
@@ -142,29 +171,27 @@ export const Dashboard: React.FC = () => {
         {isInitialLoading ? (
           <BalanceCardSkeleton title="Husband's Balance" />
         ) : (
-          <Card title="Husband's Balance" icon={<Wallet className="w-5 h-5" />}>
+          <Card 
+            title={
+              <button
+                onClick={() => toggleBalanceExpand('husband')}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Wallet className="w-5 h-5" />
+                  <span>Husband's Balance</span>
+                </div>
+                {expandedBalances.husband ? (
+                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                )}
+              </button>
+            }
+          >
             <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <span className="text-sm text-gray-600">Cash on Hand</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatCurrency(yourBalance?.cash || 0)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <span className="text-sm text-gray-600">Bank Account</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatCurrency(yourBalance?.bank || 0)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <span className="text-sm text-gray-600">Set Aside</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatCurrency(yourBalance?.setAside || 0)}
-                  </span>
-                </div>
-              </div>
-              <div className="pt-2 border-t-2 border-gray-200">
+              {/* Total (Always Visible) */}
+              <div className="pt-2">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold text-gray-700">Total</span>
                   <span className="text-2xl font-bold text-blue-600">
@@ -172,6 +199,45 @@ export const Dashboard: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Breakdown (Collapsible) */}
+              {expandedBalances.husband && (
+                <div className="space-y-2 pt-3 border-t border-gray-200">
+                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Wallet</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(yourBalance?.cash || 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Bank Balance</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(yourBalance?.bank || 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Reserved</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(yourBalance?.setAside || 0)}
+                    </span>
+                  </div>
+
+                  {/* Reserved Items Breakdown */}
+                  {husbandReserved.length > 0 && (
+                    <div className="mt-3 pl-4 space-y-1">
+                      <p className="text-xs font-medium text-gray-500 mb-2">Reserved Items:</p>
+                      {husbandReserved.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between py-1">
+                          <span className="text-xs text-gray-600">• {item.purpose}</span>
+                          <span className="text-xs font-medium text-gray-700">
+                            {formatCurrency(item.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </Card>
         )}
@@ -180,29 +246,27 @@ export const Dashboard: React.FC = () => {
         {isInitialLoading ? (
           <BalanceCardSkeleton title="Wife's Balance" />
         ) : (
-          <Card title="Wife's Balance" icon={<Wallet className="w-5 h-5" />}>
+          <Card 
+            title={
+              <button
+                onClick={() => toggleBalanceExpand('wife')}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Wallet className="w-5 h-5" />
+                  <span>Wife's Balance</span>
+                </div>
+                {expandedBalances.wife ? (
+                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                )}
+              </button>
+            }
+          >
             <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <span className="text-sm text-gray-600">Cash on Hand</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatCurrency(wifeBalance?.cash || 0)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <span className="text-sm text-gray-600">Bank Account</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatCurrency(wifeBalance?.bank || 0)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <span className="text-sm text-gray-600">Set Aside</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatCurrency(wifeBalance?.setAside || 0)}
-                  </span>
-                </div>
-              </div>
-              <div className="pt-2 border-t-2 border-gray-200">
+              {/* Total (Always Visible) */}
+              <div className="pt-2">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold text-gray-700">Total</span>
                   <span className="text-2xl font-bold text-pink-600">
@@ -210,6 +274,45 @@ export const Dashboard: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Breakdown (Collapsible) */}
+              {expandedBalances.wife && (
+                <div className="space-y-2 pt-3 border-t border-gray-200">
+                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Wallet</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(wifeBalance?.cash || 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Bank Balance</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(wifeBalance?.bank || 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Reserved</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(wifeBalance?.setAside || 0)}
+                    </span>
+                  </div>
+
+                  {/* Reserved Items Breakdown */}
+                  {wifeReserved.length > 0 && (
+                    <div className="mt-3 pl-4 space-y-1">
+                      <p className="text-xs font-medium text-gray-500 mb-2">Reserved Items:</p>
+                      {wifeReserved.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between py-1">
+                          <span className="text-xs text-gray-600">• {item.purpose}</span>
+                          <span className="text-xs font-medium text-gray-700">
+                            {formatCurrency(item.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </Card>
         )}
@@ -221,6 +324,87 @@ export const Dashboard: React.FC = () => {
           <UpcomingBillsList bills={upcomingBills} />
         )}
       </div>
+
+      {/* Tabung Summary (Separate Section) */}
+      {(husbandTabung.length > 0 || wifeTabung.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Husband's Tabung */}
+          {husbandTabung.length > 0 && (
+            <Card>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <PiggyBank className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Husband's Tabung</h3>
+                      <p className="text-xs text-gray-500">Savings Goals</p>
+                    </div>
+                  </div>
+                  <span className="text-xl font-bold text-green-600">
+                    {formatCurrency(husbandTabungTotal)}
+                  </span>
+                </div>
+
+                <div className="pt-3 border-t border-gray-200 space-y-2">
+                  {husbandTabung.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between py-1">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900 truncate">{item.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {item.progressPercentage || 0}% of {formatCurrency(item.targetAmount)}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-900 ml-3">
+                        {formatCurrency(item.savedAmount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Wife's Tabung */}
+          {wifeTabung.length > 0 && (
+            <Card>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <PiggyBank className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Wife's Tabung</h3>
+                      <p className="text-xs text-gray-500">Savings Goals</p>
+                    </div>
+                  </div>
+                  <span className="text-xl font-bold text-purple-600">
+                    {formatCurrency(wifeTabungTotal)}
+                  </span>
+                </div>
+
+                <div className="pt-3 border-t border-gray-200 space-y-2">
+                  {wifeTabung.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between py-1">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900 truncate">{item.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {item.progressPercentage || 0}% of {formatCurrency(item.targetAmount)}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-900 ml-3">
+                        {formatCurrency(item.savedAmount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Income Modal */}
       <IncomeModal
