@@ -1,17 +1,5 @@
-import axios from 'axios';
+import { apiClient } from './apiClient';
 import { Tabung, TabungTransaction, UserRole } from '../types';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-const getAuthHeader = () => {
-  // Check both localStorage and sessionStorage (matches authService pattern)
-  const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-};
 
 // Normalize MongoDB _id to id
 const normalizeTabung = (data: any): Tabung => ({
@@ -30,17 +18,15 @@ const getTabung = async (user?: UserRole, status?: 'active' | 'completed'): Prom
   if (user) params.append('user', user);
   if (status) params.append('status', status);
 
-  const response = await axios.get(
-    `${API_URL}/tabung?${params.toString()}`,
-    getAuthHeader()
-  );
-  return response.data.data.map(normalizeTabung);
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+  const tabungItems = await apiClient.get<Tabung[]>(`/tabung${queryString}`);
+  return tabungItems.map(normalizeTabung);
 };
 
 // Get single tabung
 const getTabungById = async (id: string): Promise<Tabung> => {
-  const response = await axios.get(`${API_URL}/tabung/${id}`, getAuthHeader());
-  return normalizeTabung(response.data.data);
+  const tabung = await apiClient.get<Tabung>(`/tabung/${id}`);
+  return normalizeTabung(tabung);
 };
 
 // Create new tabung
@@ -51,8 +37,8 @@ const createTabung = async (data: {
   targetAmount: number;
   targetDate?: string;
 }): Promise<Tabung> => {
-  const response = await axios.post(`${API_URL}/tabung`, data, getAuthHeader());
-  return normalizeTabung(response.data.data);
+  const tabung = await apiClient.post<Tabung>('/tabung', data);
+  return normalizeTabung(tabung);
 };
 
 // Update tabung
@@ -65,13 +51,13 @@ const updateTabung = async (
     targetDate?: string;
   }
 ): Promise<Tabung> => {
-  const response = await axios.put(`${API_URL}/tabung/${id}`, data, getAuthHeader());
-  return normalizeTabung(response.data.data);
+  const tabung = await apiClient.put<Tabung>(`/tabung/${id}`, data);
+  return normalizeTabung(tabung);
 };
 
 // Delete tabung
 const deleteTabung = async (id: string): Promise<void> => {
-  await axios.delete(`${API_URL}/tabung/${id}`, getAuthHeader());
+  await apiClient.delete(`/tabung/${id}`);
 };
 
 // Save money to tabung
@@ -82,12 +68,8 @@ const saveToTabung = async (
     reason?: string;
   }
 ): Promise<Tabung> => {
-  const response = await axios.patch(
-    `${API_URL}/tabung/${id}/save`,
-    data,
-    getAuthHeader()
-  );
-  return normalizeTabung(response.data.data);
+  const tabung = await apiClient.patch<Tabung>(`/tabung/${id}/save`, data);
+  return normalizeTabung(tabung);
 };
 
 // Withdraw money from tabung
@@ -98,21 +80,14 @@ const withdrawFromTabung = async (
     reason?: string;
   }
 ): Promise<Tabung> => {
-  const response = await axios.patch(
-    `${API_URL}/tabung/${id}/withdraw`,
-    data,
-    getAuthHeader()
-  );
-  return normalizeTabung(response.data.data);
+  const tabung = await apiClient.patch<Tabung>(`/tabung/${id}/withdraw`, data);
+  return normalizeTabung(tabung);
 };
 
 // Get tabung transaction history
 const getTabungTransactions = async (tabungId: string): Promise<TabungTransaction[]> => {
-  const response = await axios.get(
-    `${API_URL}/tabung/${tabungId}/transactions`,
-    getAuthHeader()
-  );
-  return response.data.data.map(normalizeTransaction);
+  const transactions = await apiClient.get<TabungTransaction[]>(`/tabung/${tabungId}/transactions`);
+  return transactions.map(normalizeTransaction);
 };
 
 export const tabungService = {
