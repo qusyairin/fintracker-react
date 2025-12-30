@@ -1,128 +1,166 @@
 import React from 'react';
-import { CreditCard as CreditCardIcon, AlertCircle } from 'lucide-react';
+import { CreditCard as CreditCardIcon, Edit, FileText, DollarSign, Calendar } from 'lucide-react';
+import { Card } from '../../components/common/Card';
 import { CreditCard } from '../../types';
-import { formatCurrency, getDaysUntilDate } from '../../utils/dateUtils';
+import { formatCurrency, formatDate } from '../../utils/dateUtils';
 
 interface CreditCardWidgetProps {
   card: CreditCard;
+  onEdit: (card: CreditCard) => void;
+  onUpdateStatement: (card: CreditCard) => void;
+  onMakePayment: (card: CreditCard) => void;
 }
 
-export const CreditCardWidget: React.FC<CreditCardWidgetProps> = ({ card }) => {
-  const utilization = (card.outstandingBalance / card.creditLimit) * 100;
-  const availableCredit = card.creditLimit - card.outstandingBalance;
-  const minimumPayment = card.outstandingBalance * (card.minimumPaymentPercent / 100);
+export const CreditCardWidget: React.FC<CreditCardWidgetProps> = ({
+  card,
+  onEdit,
+  onUpdateStatement,
+  onMakePayment,
+}) => {
+  const utilizationPercent = (card.outstandingBalance / card.creditLimit) * 100;
+  const availableLimit = card.availableLimit || (card.creditLimit - card.outstandingBalance);
 
-  const getDueDate = () => {
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-    const dueDate = new Date(currentYear, currentMonth, card.paymentDueDate);
-
-    if (dueDate < today) {
-      dueDate.setMonth(dueDate.getMonth() + 1);
-    }
-
-    return dueDate.toISOString().split('T')[0];
-  };
-
-  const daysUntilDue = getDaysUntilDate(getDueDate());
-
-  const getUtilizationColor = () => {
-    if (utilization >= 90) return 'text-red-600';
-    if (utilization >= 75) return 'text-orange-500';
-    if (utilization >= 50) return 'text-yellow-500';
+  const getUtilizationColor = (percent: number) => {
+    if (percent >= 80) return 'text-red-600';
+    if (percent >= 50) return 'text-yellow-600';
     return 'text-green-600';
   };
 
-  const getUtilizationBgColor = () => {
-    if (utilization >= 90) return 'bg-red-600';
-    if (utilization >= 75) return 'bg-orange-500';
-    if (utilization >= 50) return 'bg-yellow-500';
-    return 'bg-green-600';
+  const getProgressBarColor = (percent: number) => {
+    if (percent >= 80) return 'bg-red-500';
+    if (percent >= 50) return 'bg-yellow-500';
+    return 'bg-green-500';
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">{card.name}</h3>
-          <p className="text-sm text-gray-600">{card.bank}</p>
-        </div>
-        <CreditCardIcon className="w-8 h-8 text-blue-600" />
-      </div>
-
-      <div className="relative pt-1 mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className={`text-2xl font-bold ${getUtilizationColor()}`}>
-            {utilization.toFixed(1)}%
-          </span>
-          <span className="text-sm text-gray-600">utilized</span>
-        </div>
-
-        <div className="flex items-center justify-center">
-          <div className="relative w-40 h-40">
-            <svg className="transform -rotate-90 w-40 h-40">
-              <circle
-                cx="80"
-                cy="80"
-                r="70"
-                stroke="currentColor"
-                strokeWidth="12"
-                fill="transparent"
-                className="text-gray-200"
-              />
-              <circle
-                cx="80"
-                cy="80"
-                r="70"
-                stroke="currentColor"
-                strokeWidth="12"
-                fill="transparent"
-                strokeDasharray={`${2 * Math.PI * 70}`}
-                strokeDashoffset={`${2 * Math.PI * 70 * (1 - utilization / 100)}`}
-                className={getUtilizationBgColor()}
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <p className="text-xs text-gray-600">Outstanding</p>
-              <p className="text-lg font-bold text-gray-900">
-                {formatCurrency(card.outstandingBalance)}
-              </p>
+    <Card>
+      <div className="space-y-4">
+        {/* Header with Edit Button */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={`p-2 rounded-lg ${
+              card.user === 'husband' ? 'bg-blue-100' : 'bg-pink-100'
+            }`}>
+              <CreditCardIcon className={`w-5 h-5 ${
+                card.user === 'husband' ? 'text-blue-600' : 'text-pink-600'
+              }`} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">{card.name}</h3>
+              <p className="text-xs text-gray-500">{card.bank}</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="space-y-3 pt-4 border-t border-gray-100">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Credit Limit</span>
-          <span className="font-semibold text-gray-900">{formatCurrency(card.creditLimit)}</span>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Available Credit</span>
-          <span className="font-semibold text-green-600">{formatCurrency(availableCredit)}</span>
+          <button
+            onClick={() => onEdit(card)}
+            className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Edit Card Details"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
         </div>
 
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Min. Payment</span>
-          <span className="font-semibold text-gray-900">{formatCurrency(minimumPayment)}</span>
-        </div>
+        {/* Credit Limit & Outstanding */}
+        <div className="space-y-3">
+          <div className="flex justify-between items-baseline">
+            <span className="text-sm text-gray-600">Credit Limit</span>
+            <span className="text-lg font-bold text-gray-900">
+              {formatCurrency(card.creditLimit)}
+            </span>
+          </div>
 
-        <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-          <span className="text-sm text-gray-600">Payment Due</span>
-          <div className="text-right">
-            <span className="font-semibold text-gray-900">{daysUntilDue} days</span>
-            {daysUntilDue <= 3 && (
-              <div className="flex items-center text-xs text-red-600 mt-1">
-                <AlertCircle className="w-3 h-3 mr-1" />
-                Due soon!
-              </div>
-            )}
+          <div className="flex justify-between items-baseline">
+            <span className="text-sm text-gray-600">Outstanding</span>
+            <span className="text-lg font-bold text-red-600">
+              {formatCurrency(card.outstandingBalance)}
+            </span>
+          </div>
+
+          {/* Utilization Bar */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-600">Utilization</span>
+              <span className={`font-semibold ${getUtilizationColor(utilizationPercent)}`}>
+                {utilizationPercent.toFixed(1)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor(utilizationPercent)}`}
+                style={{ width: `${Math.min(utilizationPercent, 100)}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-between items-baseline pt-2 border-t border-gray-200">
+            <span className="text-sm text-gray-600">Available</span>
+            <span className="text-lg font-bold text-green-600">
+              {formatCurrency(availableLimit)}
+            </span>
           </div>
         </div>
+
+        {/* Statement Details */}
+        {(card.statementBalance > 0 || card.minimumPayment > 0) && (
+          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+            <h4 className="text-xs font-semibold text-gray-700 uppercase">Statement</h4>
+            <div className="space-y-1 text-sm">
+              {card.statementBalance > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Balance:</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatCurrency(card.statementBalance)}
+                  </span>
+                </div>
+              )}
+              {card.minimumPayment > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Min. Payment:</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatCurrency(card.minimumPayment)}
+                  </span>
+                </div>
+              )}
+              {card.statementDueDate && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Due Date:</span>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-gray-500" />
+                    <span className="font-medium text-gray-900">
+                      {formatDate(card.statementDueDate)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-2">
+          <button
+            onClick={() => onUpdateStatement(card)}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            Update Statement
+          </button>
+          <button
+            onClick={() => onMakePayment(card)}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+            disabled={card.outstandingBalance === 0}
+          >
+            <DollarSign className="w-4 h-4" />
+            Make Payment
+          </button>
+        </div>
+
+        {/* Last Updated */}
+        {card.lastStatementDate && (
+          <p className="text-xs text-gray-500 text-center">
+            Last updated: {formatDate(card.lastStatementDate)}
+          </p>
+        )}
       </div>
-    </div>
+    </Card>
   );
 };

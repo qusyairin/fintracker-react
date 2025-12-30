@@ -14,7 +14,13 @@ export type ExpenseCategory =
 
 export type BillFrequency = 'monthly' | 'quarterly' | 'yearly';
 
+export type BillType = 'bill' | 'credit_card_payment';
+
+export type RegularBillType = 'tnb' | 'rent' | 'water' | 'internet' | 'phone' | 'insurance' | 'other';
+
 export type CreditCardType = 'cc1' | 'cc2' | 'cc3';
+
+export type InstallmentStatus = 'active' | 'completed' | 'cancelled';
 
 export interface User {
   id: string;
@@ -54,6 +60,9 @@ export interface Expense {
 
 export interface Bill {
   id: string;
+  type: BillType;
+  billType?: RegularBillType;
+  creditCardId?: string;
   name: string;
   amount: number;
   dueDate: string;
@@ -61,6 +70,7 @@ export interface Bill {
   frequency?: BillFrequency;
   isPaid: boolean;
   paidDate?: string;
+  paidBy?: UserRole;
   expenseId?: string;
   createdAt: string;
   updatedAt: string;
@@ -80,13 +90,22 @@ export interface CreditCard {
   name: string;
   type: CreditCardType;
   bank: string;
+  cardNumber: number;
   creditLimit: number;
   outstandingBalance: number;
+  statementBalance: number;
+  minimumPayment: number;
+  statementDueDate?: string;
+  lastStatementDate?: string;
   statementDate: number;
   paymentDueDate: number;
   minimumPaymentPercent: number;
   interestRate: number;
   owner: UserRole;
+  user: UserRole;
+  availableLimit?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreditCardTransaction {
@@ -111,14 +130,24 @@ export interface CreditCardPayment {
 
 export interface Installment {
   id: string;
+  creditCardId: string;
   cardType: CreditCardType;
+  user: UserRole;
   itemName: string;
+  description?: string;
   totalAmount: number;
   monthlyInstallment: number;
   totalInstallments: number;
   paidInstallments: number;
   interestRate: number;
   startDate: string;
+  endDate?: string;
+  status: InstallmentStatus;
+  remainingInstallments?: number;
+  remainingAmount?: number;
+  progressPercentage?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Balance {
@@ -192,8 +221,8 @@ export interface Tabung {
   description?: string;
   targetAmount: number;
   savedAmount: number;
-  startDate: string; // ISO date string
-  targetDate?: string; // ISO date string
+  startDate: string;
+  targetDate?: string;
   status: 'active' | 'completed';
   progressPercentage?: number;
   remainingAmount?: number;

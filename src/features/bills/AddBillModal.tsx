@@ -3,17 +3,14 @@ import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
-import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { createBill, updateBill } from './billSlice';
-import { Bill, BillFrequency } from '../../types';
-import { getTodayString } from '../../utils/dateUtils';
-import { BILL_FREQUENCY_LABELS } from '../../constants/categories';
+import { useAppSelector } from '../../app/hooks';
+import { Bill, BillType, RegularBillType } from '../../types';
 
 interface AddBillModalProps {
   isOpen: boolean;
   onClose: () => void;
-  bill?: Bill; // For editing
-  onSuccess?: () => void;
+  bill?: Bill;
+  onSuccess: () => void;
 }
 
 export const AddBillModal: React.FC<AddBillModalProps> = ({
@@ -22,197 +19,295 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
   bill,
   onSuccess,
 }) => {
-  const dispatch = useAppDispatch();
-  const { loading } = useAppSelector((state) => state.bill);
+  const { cards } = useAppSelector((state) => state.creditCard);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    amount: '',
-    dueDate: getTodayString(),
-    recurring: false,
-    frequency: 'monthly' as BillFrequency,
-  });
+  const [type, setType] = useState<BillType>('bill');
+  const [billType, setBillType] = useState<RegularBillType>('other');
+  const [creditCardId, setCreditCardId] = useState('');
+  const [name, setName] = useState('');
+  const [amount, setAmount] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [recurring, setRecurring] = useState(false);
+  const [frequency, setFrequency] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Initialize form when editing
   useEffect(() => {
-    if (bill) {
-      setFormData({
-        name: bill.name,
-        amount: bill.amount.toString(),
-        dueDate: bill.dueDate,
-        recurring: bill.recurring || false,
-        frequency: bill.frequency || 'monthly',
-      });
-    } else {
-      // Reset form for new bill
-      setFormData({
-        name: '',
-        amount: '',
-        dueDate: getTodayString(),
-        recurring: false,
-        frequency: 'monthly',
-      });
+    if (isOpen) {
+      if (bill) {
+        // Edit mode
+        setType(bill.type);
+        setBillType(bill.billType || 'other');
+        setCreditCardId(bill.creditCardId || '');
+        setName(bill.name);
+        setAmount(bill.amount.toString());
+        setDueDate(bill.dueDate);
+        setRecurring(bill.recurring);
+        setFrequency(bill.frequency || 'monthly');
+      } else {
+        // Add mode - reset
+        setType('bill');
+        setBillType('other');
+        setCreditCardId('');
+        setName('');
+        setAmount('');
+        setDueDate('');
+        setRecurring(false);
+        setFrequency('monthly');
+      }
+      setError('');
     }
-    setErrors({});
-  }, [bill, isOpen]);
-
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Bill name is required';
-    }
-
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      newErrors.amount = 'Amount must be greater than 0';
-    }
-
-    if (!formData.dueDate) {
-      newErrors.dueDate = 'Due date is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  }, [isOpen, bill]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
 
-    if (!validateForm()) return;
+    const amountNum = parseFloat(amount);
 
-    const billData = {
-      name: formData.name.trim(),
-      amount: parseFloat(formData.amount),
-      dueDate: formData.dueDate,
-      recurring: formData.recurring,
-      frequency: formData.recurring ? formData.frequency : undefined,
-      isPaid: bill?.isPaid || false,
-    };
+    // Validation
+    if (!name.trim()) {
+      setError('Bill name is required');
+      return;
+    }
 
+    if (!amount || isNaN(amountNum) || amountNum <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+
+    if (!dueDate) {
+      setError('Due date is required');
+      return;
+    }
+
+    if (type === 'bill' && !billType) {
+      setError('Please select a bill type');
+      return;
+    }
+
+    if (type === 'credit_card_payment' && !creditCardId) {
+      setError('Please select a credit card');
+      return;
+    }
+
+    setLoading(true);
     try {
-      if (bill) {
-        // Edit mode
-        await dispatch(updateBill({ id: bill.id, data: billData })).unwrap();
+      const data: any = {
+        type,
+        name: name.trim(),
+        amount: amountNum,
+        dueDate,
+        recurring,
+      };
+
+      if (type === 'bill') {
+        data.billType = billType;
       } else {
-        // Add mode
-        await dispatch(createBill(billData)).unwrap();
+        data.creditCardId = creditCardId;
       }
 
-      onSuccess?.();
+      if (recurring) {
+        data.frequency = frequency;
+      }
+
+      const url = bill
+        ? `${import.meta.env.VITE_API_URL}/bills/${bill.id}`
+        : `${import.meta.env.VITE_API_URL}/bills`;
+
+      const method = bill ? 'PUT' : 'POST';
+
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save bill');
+      }
+
+      onSuccess();
       onClose();
-    } catch (error: any) {
-      setErrors({ submit: error.message || 'Failed to save bill' });
+    } catch (err: any) {
+      setError(err.message || 'Failed to save bill');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleClose = () => {
-    if (!loading) {
-      onClose();
-    }
-  };
+  const billTypeOptions = [
+    { value: 'tnb', label: 'TNB (Electricity)' },
+    { value: 'rent', label: 'Rent' },
+    { value: 'water', label: 'Water' },
+    { value: 'internet', label: 'Internet' },
+    { value: 'phone', label: 'Phone' },
+    { value: 'insurance', label: 'Insurance' },
+    { value: 'other', label: 'Other' },
+  ];
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={handleClose}
-      title={bill ? 'Edit Bill' : 'Add New Bill'}
-      size="md"
+      onClose={onClose}
+      title={bill ? 'Edit Bill' : 'Add Bill'}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Bill Name */}
-        <Input
-          type="text"
-          label="Bill Name"
-          placeholder="e.g., Rent, Credit Card"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          error={errors.name}
-          disabled={loading}
-          required
-        />
-
-        {/* Amount & Due Date */}
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            type="number"
-            step="0.01"
-            label="Amount (RM)"
-            placeholder="0.00"
-            value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-            error={errors.amount}
-            disabled={loading}
-            required
-          />
-
-          <Input
-            type="date"
-            label="Due Date"
-            value={formData.dueDate}
-            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-            error={errors.dueDate}
-            disabled={loading}
-            required
-          />
-        </div>
-
-        {/* Recurring Checkbox */}
-        <div className="flex items-center space-x-2">
-          <input
-            id="recurring"
-            type="checkbox"
-            checked={formData.recurring}
-            onChange={(e) => setFormData({ ...formData, recurring: e.target.checked })}
-            disabled={loading}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <label htmlFor="recurring" className="text-sm font-medium text-gray-700">
-            This is a recurring bill
-          </label>
-        </div>
-
-        {/* Frequency (if recurring) */}
-        {formData.recurring && (
-          <Select
-            label="Frequency"
-            value={formData.frequency}
-            onChange={(e) =>
-              setFormData({ ...formData, frequency: e.target.value as BillFrequency })
-            }
-            options={Object.entries(BILL_FREQUENCY_LABELS).map(([value, label]) => ({
-              value,
-              label,
-            }))}
-            disabled={loading}
-          />
-        )}
-
-        {/* Submit Error */}
-        {errors.submit && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-600">{errors.submit}</p>
+        {/* Bill Type Selection */}
+        {!bill && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type <span className="text-red-500">*</span>
+            </label>
+            <Select
+              value={type}
+              onChange={(e) => setType(e.target.value as BillType)}
+              options={[
+                { value: 'bill', label: 'Regular Bill (TNB, Rent, etc)' },
+                { value: 'credit_card_payment', label: 'Credit Card Payment' },
+              ]}
+            />
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            fullWidth
-            onClick={handleClose}
-            disabled={loading}
-          >
+        {/* Bill Type (for regular bills) */}
+        {type === 'bill' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Bill Type <span className="text-red-500">*</span>
+            </label>
+            <Select
+              value={billType}
+              onChange={(e) => setBillType(e.target.value as RegularBillType)}
+              options={billTypeOptions}
+            />
+          </div>
+        )}
+
+        {/* Credit Card Selection (for CC payments) */}
+        {type === 'credit_card_payment' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Credit Card <span className="text-red-500">*</span>
+            </label>
+            <Select
+              value={creditCardId}
+              onChange={(e) => setCreditCardId(e.target.value)}
+              options={[
+                { value: '', label: 'Select a credit card' },
+                ...cards.map((card) => ({
+                  value: card.id,
+                  label: `${card.name} (${card.user === 'husband' ? 'Husband' : 'Wife'})`,
+                })),
+              ]}
+            />
+          </div>
+        )}
+
+        {/* Bill Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {type === 'credit_card_payment' ? 'Payment Name' : 'Bill Name'}{' '}
+            <span className="text-red-500">*</span>
+          </label>
+          <Input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={
+              type === 'credit_card_payment'
+                ? 'e.g., Maybank Shopee Payment'
+                : 'e.g., TNB Bill'
+            }
+            required
+          />
+        </div>
+
+        {/* Amount */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Amount <span className="text-red-500">*</span>
+          </label>
+          <Input
+            type="number"
+            step="0.01"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            required
+          />
+        </div>
+
+        {/* Due Date */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Due Date <span className="text-red-500">*</span>
+          </label>
+          <Input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            required
+          />
+        </div>
+
+        {/* Recurring (only for regular bills) */}
+        {type === 'bill' && (
+          <div className="space-y-3">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="recurring"
+                checked={recurring}
+                onChange={(e) => setRecurring(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="recurring" className="ml-2 text-sm text-gray-700">
+                Recurring Bill
+              </label>
+            </div>
+
+            {recurring && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Frequency
+                </label>
+                <Select
+                  value={frequency}
+                  onChange={(e) =>
+                    setFrequency(e.target.value as 'monthly' | 'quarterly' | 'yearly')
+                  }
+                  options={[
+                    { value: 'monthly', label: 'Monthly' },
+                    { value: 'quarterly', label: 'Quarterly' },
+                    { value: 'yearly', label: 'Yearly' },
+                  ]}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button
-            type="submit"
-            fullWidth
-            disabled={loading}
-          >
-            {loading ? 'Saving...' : bill ? 'Update Bill' : 'Add Bill'}
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Saving...' : bill ? 'Save Changes' : 'Add Bill'}
           </Button>
         </div>
       </form>

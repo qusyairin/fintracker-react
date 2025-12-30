@@ -4,12 +4,12 @@ import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Select } from '../../components/common/Select';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { fetchExpenses, deleteExpense } from './expenseSlice';
+import { fetchExpenses, deleteExpense, approveExpense } from './expenseSlice'; // ← Add approveExpense
 import { fetchBalances } from '../balance/balanceSlice';
 import { fetchCreditCards } from '../creditCards/creditCardSlice';
 import { ExpenseList } from './ExpenseList';
 import { AddExpenseModal } from './AddExpenseModal';
-import { DeleteExpenseModal } from './DeleteExpenseModal'; // ← Add this import
+import { DeleteExpenseModal } from './DeleteExpenseModal';
 import { Expense } from '../../types';
 import {
   formatCurrency,
@@ -25,7 +25,7 @@ export const ExpensesPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | undefined>(undefined);
-  const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null); // ← Add this state
+  const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
 
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(selectedMonth);
   const monthName = getFinancialMonthName(selectedMonth);
@@ -50,14 +50,19 @@ export const ExpensesPage: React.FC = () => {
     setShowModal(true);
   };
 
-  // ← Update this to open modal
   const handleDeleteExpense = (expense: Expense) => {
     setDeletingExpense(expense);
   };
 
-  // ← Add this function for actual deletion
   const handleConfirmDelete = async (expenseId: string) => {
     await dispatch(deleteExpense(expenseId)).unwrap();
+    await dispatch(fetchBalances());
+    await dispatch(fetchCreditCards());
+  };
+
+  // ← Add this function for approval
+  const handleApproveExpense = async (expenseId: string) => {
+    await dispatch(approveExpense(expenseId)).unwrap();
     await dispatch(fetchBalances());
     await dispatch(fetchCreditCards());
   };
@@ -167,6 +172,7 @@ export const ExpensesPage: React.FC = () => {
           loading={loading}
           onEdit={handleEditExpense}
           onDelete={handleDeleteExpense}
+          onApprove={handleApproveExpense} // ← Add this
         />
       </Card>
 
@@ -181,6 +187,7 @@ export const ExpensesPage: React.FC = () => {
         onSuccess={handleModalSuccess}
       />
 
+      {/* Delete Expense Modal */}
       <DeleteExpenseModal
         isOpen={deletingExpense !== null}
         onClose={() => setDeletingExpense(null)}

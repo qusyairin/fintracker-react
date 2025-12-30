@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Trash2, ShoppingBag } from 'lucide-react';
+import { Pencil, Trash2, ShoppingBag, CheckCircle } from 'lucide-react'; // ← Add CheckCircle
 import { Badge } from '../../components/common/Badge';
 import { Expense } from '../../types';
 import { formatDate, formatCurrency } from '../../utils/dateUtils';
@@ -10,9 +10,16 @@ interface ExpenseListProps {
   loading: boolean;
   onEdit?: (expense: Expense) => void;
   onDelete?: (expense: Expense) => void;
+  onApprove?: (expenseId: string) => void; // ← Add this
 }
 
-export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, loading, onEdit, onDelete }) => {
+export const ExpenseList: React.FC<ExpenseListProps> = ({ 
+  expenses, 
+  loading, 
+  onEdit, 
+  onDelete,
+  onApprove // ← Add this
+}) => {
   const getUserColor = (user: string) => {
     return user === 'husband' ? 'text-blue-600' : 'text-pink-600';
   };
@@ -97,6 +104,16 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, loading, onE
               </td>
               <td className="py-3 px-4">
                 <div className="flex justify-end gap-2">
+                  {/* ← Add Approve Button (only for pending) */}
+                  {onApprove && expense.status === 'pending' && (
+                    <button
+                      onClick={() => onApprove(expense.id)}
+                      className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Approve"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                    </button>
+                  )}
                   {onEdit && (
                     <button
                       onClick={() => onEdit(expense)}
@@ -108,7 +125,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, loading, onE
                   )}
                   {onDelete && (
                     <button
-                      onClick={() => onDelete(expense)} // ← Changed: Pass entire expense object
+                      onClick={() => onDelete(expense)}
                       className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete"
                     >

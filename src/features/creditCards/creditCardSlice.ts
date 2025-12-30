@@ -1,11 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { creditCardService } from '../../services/creditCardService';
-import { CreditCard, CreditCardTransaction, CreditCardPayment, Installment } from '../../types';
+import { CreditCard, Installment, UserRole } from '../../types';
 
 interface CreditCardState {
   cards: CreditCard[];
-  transactions: CreditCardTransaction[];
-  payments: CreditCardPayment[];
   installments: Installment[];
   loading: boolean;
   error: string | null;
@@ -13,40 +11,116 @@ interface CreditCardState {
 
 const initialState: CreditCardState = {
   cards: [],
-  transactions: [],
-  payments: [],
   installments: [],
   loading: false,
   error: null,
 };
 
-export const fetchCreditCards = createAsyncThunk('creditCard/fetchCards', async () => {
-  return await creditCardService.getCreditCards();
-});
-
-export const fetchTransactions = createAsyncThunk('creditCard/fetchTransactions', async () => {
-  return await creditCardService.getTransactions();
-});
-
-export const fetchPayments = createAsyncThunk('creditCard/fetchPayments', async () => {
-  return await creditCardService.getPayments();
-});
-
-export const fetchInstallments = createAsyncThunk('creditCard/fetchInstallments', async () => {
-  return await creditCardService.getInstallments();
-});
-
-export const addTransaction = createAsyncThunk(
-  'creditCard/addTransaction',
-  async (data: Omit<CreditCardTransaction, 'id' | 'createdAt'>) => {
-    return await creditCardService.addTransaction(data);
+// Fetch all credit cards
+export const fetchCreditCards = createAsyncThunk(
+  'creditCard/fetchCards',
+  async (user?: UserRole) => {
+    return await creditCardService.getCreditCards(user);
   }
 );
 
-export const addPayment = createAsyncThunk(
-  'creditCard/addPayment',
-  async (data: Omit<CreditCardPayment, 'id' | 'createdAt'>) => {
-    return await creditCardService.addPayment(data);
+// Update credit card details
+export const updateCreditCard = createAsyncThunk(
+  'creditCard/updateCard',
+  async ({ id, data }: { id: string; data: { name?: string; bank?: string; creditLimit?: number } }) => {
+    return await creditCardService.updateCreditCard(id, data);
+  }
+);
+
+// Update statement
+export const updateStatement = createAsyncThunk(
+  'creditCard/updateStatement',
+  async ({
+    id,
+    data,
+  }: {
+    id: string;
+    data: { statementBalance: number; minimumPayment: number; statementDueDate: string };
+  }) => {
+    return await creditCardService.updateStatement(id, data);
+  }
+);
+
+// Make payment
+export const makePayment = createAsyncThunk(
+  'creditCard/makePayment',
+  async ({
+    id,
+    data,
+  }: {
+    id: string;
+    data: { amount: number; paidBy: UserRole; paymentDate?: string; notes?: string };
+  }) => {
+    return await creditCardService.makePayment(id, data);
+  }
+);
+
+// Fetch installments
+export const fetchInstallments = createAsyncThunk(
+  'creditCard/fetchInstallments',
+  async (params?: { user?: UserRole; status?: 'active' | 'completed' | 'cancelled' }) => {
+    return await creditCardService.getInstallments(params);
+  }
+);
+
+// Create installment
+export const createInstallment = createAsyncThunk(
+  'creditCard/createInstallment',
+  async (data: {
+    creditCardId: string;
+    cardType: string;
+    user: UserRole;
+    itemName: string;
+    description?: string;
+    totalAmount: number;
+    monthlyInstallment: number;
+    totalInstallments: number;
+    interestRate?: number;
+    startDate: string;
+  }) => {
+    return await creditCardService.createInstallment(data);
+  }
+);
+
+// Update installment
+export const updateInstallment = createAsyncThunk(
+  'creditCard/updateInstallment',
+  async ({
+    id,
+    data,
+  }: {
+    id: string;
+    data: {
+      itemName?: string;
+      description?: string;
+      monthlyInstallment?: number;
+      totalInstallments?: number;
+      interestRate?: number;
+    };
+  }) => {
+    return await creditCardService.updateInstallment(id, data);
+  }
+);
+
+// Delete installment
+export const deleteInstallment = createAsyncThunk(
+  'creditCard/deleteInstallment',
+  async (id: string) => {
+    await creditCardService.deleteInstallment(id);
+    return id;
+  }
+);
+
+// Pay installment
+export const payInstallment = createAsyncThunk(
+  'creditCard/payInstallment',
+  async (id: string) => {
+    return await creditCardService.payInstallment(id);
   }
 );
 
@@ -60,6 +134,7 @@ const creditCardSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Fetch credit cards
       .addCase(fetchCreditCards.pending, (state) => {
         state.loading = true;
       })
@@ -71,30 +146,51 @@ const creditCardSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch credit cards';
       })
-      .addCase(fetchTransactions.fulfilled, (state, action) => {
-        state.transactions = action.payload;
+      // Update credit card
+      .addCase(updateCreditCard.fulfilled, (state, action) => {
+        const index = state.cards.findIndex((c) => c.id === action.payload.id);
+        if (index !== -1) {
+          state.cards[index] = action.payload;
+        }
       })
-      .addCase(fetchPayments.fulfilled, (state, action) => {
-        state.payments = action.payload;
+      // Update statement
+      .addCase(updateStatement.fulfilled, (state, action) => {
+        const index = state.cards.findIndex((c) => c.id === action.payload.id);
+        if (index !== -1) {
+          state.cards[index] = action.payload;
+        }
       })
+      // Make payment
+      .addCase(makePayment.fulfilled, (state, action) => {
+        const index = state.cards.findIndex((c) => c.id === action.payload.card.id);
+        if (index !== -1) {
+          state.cards[index] = action.payload.card;
+        }
+      })
+      // Fetch installments
       .addCase(fetchInstallments.fulfilled, (state, action) => {
         state.installments = action.payload;
       })
-      .addCase(addTransaction.fulfilled, (state, action) => {
-        state.transactions.push(action.payload);
-        const cardIndex = state.cards.findIndex(c => c.type === action.payload.cardType);
-        if (cardIndex !== -1) {
-          state.cards[cardIndex].outstandingBalance += action.payload.amount;
+      // Create installment
+      .addCase(createInstallment.fulfilled, (state, action) => {
+        state.installments.push(action.payload);
+      })
+      // Update installment
+      .addCase(updateInstallment.fulfilled, (state, action) => {
+        const index = state.installments.findIndex((i) => i.id === action.payload.id);
+        if (index !== -1) {
+          state.installments[index] = action.payload;
         }
       })
-      .addCase(addPayment.fulfilled, (state, action) => {
-        state.payments.push(action.payload);
-        const cardIndex = state.cards.findIndex(c => c.type === action.payload.cardType);
-        if (cardIndex !== -1) {
-          state.cards[cardIndex].outstandingBalance -= action.payload.amount;
-          if (state.cards[cardIndex].outstandingBalance < 0) {
-            state.cards[cardIndex].outstandingBalance = 0;
-          }
+      // Delete installment
+      .addCase(deleteInstallment.fulfilled, (state, action) => {
+        state.installments = state.installments.filter((i) => i.id !== action.payload);
+      })
+      // Pay installment
+      .addCase(payInstallment.fulfilled, (state, action) => {
+        const index = state.installments.findIndex((i) => i.id === action.payload.id);
+        if (index !== -1) {
+          state.installments[index] = action.payload;
         }
       });
   },
