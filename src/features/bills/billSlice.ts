@@ -42,7 +42,7 @@ export const updateBill = createAsyncThunk(
 );
 
 export const markBillAsPaid = createAsyncThunk(
-  'bill/markAsPaid',
+  'bill/markBillAsPaid',
   async ({ 
     id, 
     paymentMethod, 
@@ -54,7 +54,11 @@ export const markBillAsPaid = createAsyncThunk(
     category: string; 
     addedBy: string;
   }) => {
-    return await billService.markAsPaid(id, paymentMethod, category, addedBy);
+    return await billService.markBillAsPaid(id, {
+      paymentMethod,
+      category,
+      addedBy,
+    });
   }
 );
 

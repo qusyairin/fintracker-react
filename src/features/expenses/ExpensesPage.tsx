@@ -1,92 +1,97 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, TrendingDown, Calendar } from 'lucide-react';
+import { Plus, Filter } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import { Select } from '../../components/common/Select';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { fetchExpenses, deleteExpense, approveExpense } from './expenseSlice'; // ← Add approveExpense
+import {
+  fetchExpenses,
+  deleteExpense,
+  approveExpense,
+} from './expenseSlice';
 import { fetchBalances } from '../balance/balanceSlice';
 import { fetchCreditCards } from '../creditCards/creditCardSlice';
 import { ExpenseList } from './ExpenseList';
 import { AddExpenseModal } from './AddExpenseModal';
 import { DeleteExpenseModal } from './DeleteExpenseModal';
 import { Expense } from '../../types';
-import {
-  formatCurrency,
-  getCurrentMonth,
-  getFinancialMonthName,
-  formatFinancialMonthRange,
-  getFinancialMonthRange,
-} from '../../utils/dateUtils';
+import { formatCurrency, getCurrentMonth } from '../../utils/dateUtils';
+import { CATEGORY_LABELS } from '../../constants/categories';
 
 export const ExpensesPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { expenses, loading } = useAppSelector((state) => state.expense);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
-  const [showModal, setShowModal] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | undefined>(undefined);
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
-
-  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(selectedMonth);
-  const monthName = getFinancialMonthName(selectedMonth);
-  const monthRangeText = formatFinancialMonthRange(selectedMonth);
-
-  // Calculate totals for selected month
-  const monthExpenses = expenses.filter((exp) => exp.date >= monthStart && exp.date <= monthEnd);
-  const totalExpenses = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const pendingCount = monthExpenses.filter((e) => e.status === 'pending').length;
+  const [approvingId, setApprovingId] = useState<string | null>(null); // ← Add this
 
   useEffect(() => {
     dispatch(fetchExpenses(selectedMonth));
+    dispatch(fetchBalances());
+    dispatch(fetchCreditCards());
   }, [dispatch, selectedMonth]);
 
   const handleAddExpense = () => {
     setEditingExpense(undefined);
-    setShowModal(true);
+    setIsAddModalOpen(true);
   };
 
   const handleEditExpense = (expense: Expense) => {
     setEditingExpense(expense);
-    setShowModal(true);
+    setIsAddModalOpen(true);
   };
 
   const handleDeleteExpense = (expense: Expense) => {
     setDeletingExpense(expense);
   };
 
+  const handleApproveExpense = async (expenseId: string) => {
+    setApprovingId(expenseId); // ← Set loading state
+    try {
+      await dispatch(approveExpense(expenseId)).unwrap();
+      await dispatch(fetchExpenses(selectedMonth));
+      await dispatch(fetchBalances());
+      await dispatch(fetchCreditCards());
+    } catch (error) {
+      console.error('Failed to approve expense:', error);
+    } finally {
+      setApprovingId(null); // ← Clear loading state
+    }
+  };
+
   const handleConfirmDelete = async (expenseId: string) => {
     await dispatch(deleteExpense(expenseId)).unwrap();
+    await dispatch(fetchExpenses(selectedMonth));
     await dispatch(fetchBalances());
     await dispatch(fetchCreditCards());
   };
 
-  // ← Add this function for approval
-  const handleApproveExpense = async (expenseId: string) => {
-    await dispatch(approveExpense(expenseId)).unwrap();
+  const handleModalSuccess = async () => {
+    await dispatch(fetchExpenses(selectedMonth));
     await dispatch(fetchBalances());
     await dispatch(fetchCreditCards());
   };
 
-  const handleModalSuccess = () => {
-    dispatch(fetchExpenses(selectedMonth));
-    dispatch(fetchBalances());
-    dispatch(fetchCreditCards());
-  };
+  // Filter expenses
+  const approvedExpenses = expenses.filter((e) => e.status === 'approved');
+  const pendingExpenses = expenses.filter((e) => e.status === 'pending');
 
-  // Generate month options (last 12 months)
-  const generateMonthOptions = () => {
-    const options = [];
-    const today = new Date();
-    
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const label = getFinancialMonthName(yearMonth);
-      options.push({ value: yearMonth, label });
+  // Calculate stats
+  const totalExpenses = approvedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+  // Category breakdown
+  const categoryBreakdown = approvedExpenses.reduce((acc, exp) => {
+    if (!acc[exp.category]) {
+      acc[exp.category] = 0;
     }
-    
-    return options;
-  };
+    acc[exp.category] += exp.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const topCategories = Object.entries(categoryBreakdown)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -102,38 +107,19 @@ export const ExpensesPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Filters & Summary */}
+      {/* Month Filter */}
       <Card>
-        <div className="space-y-4">
-          {/* Month Selector */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Calendar className="w-4 h-4" />
-              <span>Period: {monthRangeText}</span>
-            </div>
-            <div className="w-full sm:w-64">
-              <Select
-                options={generateMonthOptions()}
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Total Expenses */}
-          <div className="pt-4 border-t border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingDown className="w-5 h-5 text-red-600" />
-                <span className="text-sm font-medium text-gray-700">
-                  Total Expenses ({monthName})
-                </span>
-              </div>
-              <span className="text-2xl font-bold text-red-600">
-                {formatCurrency(totalExpenses)}
-              </span>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
+          <Filter className="w-5 h-5 text-gray-500" />
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+          />
+          <span className="text-sm text-gray-600">
+            {expenses.length} expense{expenses.length !== 1 ? 's' : ''} found
+          </span>
         </div>
       </Card>
 
@@ -142,52 +128,79 @@ export const ExpensesPage: React.FC = () => {
         <Card>
           <div>
             <p className="text-sm text-gray-600 mb-1">Total Expenses</p>
+            <p className="text-3xl font-bold text-red-600">{formatCurrency(totalExpenses)}</p>
+          </div>
+        </Card>
+
+        <Card>
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Pending Approval</p>
+            <p className="text-3xl font-bold text-orange-600">{pendingExpenses.length}</p>
+          </div>
+        </Card>
+
+        <Card>
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Average per Day</p>
             <p className="text-3xl font-bold text-gray-900">
-              {formatCurrency(totalExpenses)}
-            </p>
-          </div>
-        </Card>
-
-        <Card>
-          <div>
-            <p className="text-sm text-gray-600 mb-1">Total Transactions</p>
-            <p className="text-3xl font-bold text-gray-900">{monthExpenses.length}</p>
-          </div>
-        </Card>
-
-        <Card>
-          <div>
-            <p className="text-sm text-gray-600 mb-1">Pending Review</p>
-            <p className="text-3xl font-bold text-yellow-600">
-              {pendingCount}
+              {formatCurrency(approvedExpenses.length > 0 ? totalExpenses / 30 : 0)}
             </p>
           </div>
         </Card>
       </div>
 
-      {/* Expense List */}
+      {/* Top Categories */}
+      {topCategories.length > 0 && (
+        <Card title="Top Spending Categories">
+          <div className="space-y-3">
+            {topCategories.map(([category, amount]) => (
+              <div key={category} className="flex items-center justify-between">
+                <span className="text-sm text-gray-700">{CATEGORY_LABELS[category]}</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {formatCurrency(amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Pending Expenses */}
+      {pendingExpenses.length > 0 && (
+        <Card title="Pending Approval">
+          <ExpenseList
+            expenses={pendingExpenses}
+            loading={loading}
+            onEdit={handleEditExpense}
+            onDelete={handleDeleteExpense}
+            onApprove={handleApproveExpense}
+            approvingId={approvingId} // ← Pass loading state
+          />
+        </Card>
+      )}
+
+      {/* All Expenses */}
       <Card title="All Expenses">
         <ExpenseList
-          expenses={monthExpenses}
+          expenses={approvedExpenses}
           loading={loading}
           onEdit={handleEditExpense}
           onDelete={handleDeleteExpense}
-          onApprove={handleApproveExpense} // ← Add this
+          approvingId={approvingId} // ← Pass loading state
         />
       </Card>
 
-      {/* Expense Modal */}
+      {/* Modals */}
       <AddExpenseModal
-        isOpen={showModal}
+        isOpen={isAddModalOpen}
         onClose={() => {
-          setShowModal(false);
+          setIsAddModalOpen(false);
           setEditingExpense(undefined);
         }}
         expense={editingExpense}
         onSuccess={handleModalSuccess}
       />
 
-      {/* Delete Expense Modal */}
       <DeleteExpenseModal
         isOpen={deletingExpense !== null}
         onClose={() => setDeletingExpense(null)}

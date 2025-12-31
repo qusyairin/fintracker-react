@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Trash2, ShoppingBag, CheckCircle } from 'lucide-react'; // ← Add CheckCircle
+import { Pencil, Trash2, ShoppingBag, CheckCircle, Loader2 } from 'lucide-react';
 import { Badge } from '../../components/common/Badge';
 import { Expense } from '../../types';
 import { formatDate, formatCurrency } from '../../utils/dateUtils';
@@ -10,7 +10,8 @@ interface ExpenseListProps {
   loading: boolean;
   onEdit?: (expense: Expense) => void;
   onDelete?: (expense: Expense) => void;
-  onApprove?: (expenseId: string) => void; // ← Add this
+  onApprove?: (expenseId: string) => void;
+  approvingId?: string | null; // ← Add this for approve loading
 }
 
 export const ExpenseList: React.FC<ExpenseListProps> = ({ 
@@ -18,7 +19,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   loading, 
   onEdit, 
   onDelete,
-  onApprove // ← Add this
+  onApprove,
+  approvingId, // ← Add this
 }) => {
   const getUserColor = (user: string) => {
     return user === 'husband' ? 'text-blue-600' : 'text-pink-600';
@@ -59,83 +61,103 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           </tr>
         </thead>
         <tbody>
-          {expenses.map((expense) => (
-            <tr key={expense.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-              <td className="py-3 px-4 text-sm text-gray-900">{formatDate(expense.date)}</td>
-              <td className="py-3 px-4 text-sm text-gray-900">
-                <div className="flex flex-col">
-                  <span>{expense.description}</span>
-                  {expense.notes && (
-                    <span className="text-xs text-gray-500 mt-0.5 line-clamp-1">
-                      {expense.notes}
-                    </span>
-                  )}
-                </div>
-              </td>
-              <td className="py-3 px-4">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  {CATEGORY_LABELS[expense.category]}
-                </span>
-              </td>
-              <td className="py-3 px-4 text-sm text-gray-600">
-                {PAYMENT_METHOD_LABELS[expense.paymentMethod]}
-              </td>
-              <td className="py-3 px-4">
-                <span className={`text-sm font-medium ${getUserColor(expense.addedBy)}`}>
-                  {expense.addedBy === 'husband' ? 'Husband' : 'Wife'}
-                </span>
-              </td>
-              <td className="py-3 px-4 text-right text-sm font-semibold text-gray-900">
-                {formatCurrency(expense.amount)}
-              </td>
-              <td className="py-3 px-4 text-center">
-                <Badge
-                  variant={
-                    expense.status === 'approved'
-                      ? 'success'
-                      : expense.status === 'pending'
-                      ? 'warning'
-                      : 'danger'
-                  }
-                  size="sm"
-                >
-                  {expense.status}
-                </Badge>
-              </td>
-              <td className="py-3 px-4">
-                <div className="flex justify-end gap-2">
-                  {/* ← Add Approve Button (only for pending) */}
-                  {onApprove && expense.status === 'pending' && (
-                    <button
-                      onClick={() => onApprove(expense.id)}
-                      className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                      title="Approve"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                    </button>
-                  )}
-                  {onEdit && (
-                    <button
-                      onClick={() => onEdit(expense)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Edit"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                  )}
-                  {onDelete && (
-                    <button
-                      onClick={() => onDelete(expense)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
+          {expenses.map((expense) => {
+            const isApproving = approvingId === expense.id;
+            
+            return (
+              <tr 
+                key={expense.id} 
+                className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                  isApproving ? 'opacity-50' : ''
+                }`}
+              >
+                <td className="py-3 px-4 text-sm text-gray-900">{formatDate(expense.date)}</td>
+                <td className="py-3 px-4 text-sm text-gray-900">
+                  <div className="flex flex-col">
+                    <span>{expense.description}</span>
+                    {expense.notes && (
+                      <span className="text-xs text-gray-500 mt-0.5 line-clamp-1">
+                        {expense.notes}
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="py-3 px-4">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    {CATEGORY_LABELS[expense.category]}
+                  </span>
+                </td>
+                <td className="py-3 px-4 text-sm text-gray-600">
+                  {PAYMENT_METHOD_LABELS[expense.paymentMethod]}
+                </td>
+                <td className="py-3 px-4">
+                  <span className={`text-sm font-medium ${getUserColor(expense.addedBy)}`}>
+                    {expense.addedBy === 'husband' ? 'Husband' : 'Wife'}
+                  </span>
+                </td>
+                <td className="py-3 px-4 text-right text-sm font-semibold text-gray-900">
+                  {formatCurrency(expense.amount)}
+                </td>
+                <td className="py-3 px-4 text-center">
+                  <Badge
+                    variant={
+                      expense.status === 'approved'
+                        ? 'success'
+                        : expense.status === 'pending'
+                        ? 'warning'
+                        : 'danger'
+                    }
+                    size="sm"
+                  >
+                    {expense.status}
+                  </Badge>
+                </td>
+                <td className="py-3 px-4">
+                  <div className="flex justify-end gap-2">
+                    {/* Approve Button with Loading */}
+                    {onApprove && expense.status === 'pending' && (
+                      <button
+                        onClick={() => onApprove(expense.id)}
+                        disabled={isApproving}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          isApproving
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-green-600 hover:bg-green-50'
+                        }`}
+                        title="Approve"
+                      >
+                        {isApproving ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
+                    {onEdit && (
+                      <button
+                        onClick={() => onEdit(expense)}
+                        disabled={isApproving}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Edit"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={() => onDelete(expense)}
+                        disabled={isApproving}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

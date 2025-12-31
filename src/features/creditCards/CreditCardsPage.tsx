@@ -206,7 +206,7 @@ export const CreditCardsPage: React.FC = () => {
         title={
           <div className="flex items-center justify-between">
             <span>Active Installment Plans</span>
-            <Button size="sm" onClick={handleAddInstallment}>
+            <Button size="sm" onClick={handleAddInstallment} className='ml-4'>
               <Plus className="w-4 h-4 mr-2" />
               Add Installment
             </Button>

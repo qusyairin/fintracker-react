@@ -54,7 +54,7 @@ export const AddInstallmentModal: React.FC<AddInstallmentModalProps> = ({
     setError('');
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -65,50 +65,58 @@ export const AddInstallmentModal: React.FC<AddInstallmentModalProps> = ({
 
     // Validation
     if (!creditCardId) {
-      setError('Please select a credit card');
-      return;
+    setError('Please select a credit card');
+    return;
     }
 
     if (!itemName.trim()) {
-      setError('Please enter an item name');
-      return;
+    setError('Please enter an item name');
+    return;
     }
 
     if (!totalAmount || isNaN(totalAmountNum) || totalAmountNum <= 0) {
-      setError('Please enter a valid total amount');
-      return;
+    setError('Please enter a valid total amount');
+    return;
     }
 
     if (!monthlyInstallment || isNaN(monthlyInstallmentNum) || monthlyInstallmentNum <= 0) {
-      setError('Please enter a valid monthly installment');
-      return;
+    setError('Please enter a valid monthly installment');
+    return;
     }
 
     if (!totalInstallments || isNaN(totalInstallmentsNum) || totalInstallmentsNum < 1) {
-      setError('Please enter a valid number of installments');
-      return;
+    setError('Please enter a valid number of installments');
+    return;
     }
 
     const calculatedTotal = monthlyInstallmentNum * totalInstallmentsNum;
     if (Math.abs(calculatedTotal - totalAmountNum) > 0.01) {
-      setError(
+    setError(
         `Total amount (${totalAmountNum}) doesn't match monthly installment × total installments (${calculatedTotal})`
-      );
-      return;
+    );
+    return;
     }
 
     const selectedCard = cards.find((c) => c.id === creditCardId);
     if (!selectedCard) {
-      setError('Selected credit card not found');
-      return;
+    setError('Selected credit card not found');
+    return;
+    }
+
+    // ← FIX: Ensure user field is present
+    const userField = selectedCard.user || selectedCard.owner;
+    if (!userField) {
+    setError('Credit card user information is missing. Please contact support.');
+    console.error('Credit card missing user field:', selectedCard);
+    return;
     }
 
     setLoading(true);
     try {
-      await onSubmit({
+    await onSubmit({
         creditCardId,
         cardType: selectedCard.type,
-        user: selectedCard.user,
+        user: userField, // ← Use the validated user field
         itemName: itemName.trim(),
         description: description.trim() || undefined,
         totalAmount: totalAmountNum,
@@ -116,15 +124,15 @@ export const AddInstallmentModal: React.FC<AddInstallmentModalProps> = ({
         totalInstallments: totalInstallmentsNum,
         interestRate: interestRateNum,
         startDate,
-      });
-      handleReset();
-      onClose();
+    });
+    handleReset();
+    onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to create installment');
+    setError(err.message || 'Failed to create installment');
     } finally {
-      setLoading(false);
+    setLoading(false);
     }
-  };
+    };
 
   const handleMonthlyChange = (value: string) => {
     setMonthlyInstallment(value);
